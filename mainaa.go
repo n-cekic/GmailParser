@@ -1,4 +1,4 @@
-package maina
+package main
 
 import (
 	"context"
@@ -14,6 +14,8 @@ import (
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/option"
+
+	"nikola/monygo/service"
 )
 
 // Retrieve a token, saves the token, then returns the generated client.
@@ -71,6 +73,34 @@ func saveToken(path string, token *oauth2.Token) {
 	json.NewEncoder(f).Encode(token)
 }
 
+func sendEmail(srv *gmail.Service, msg gmail.Message) {
+	// send an email
+	_, err := srv.Users.Messages.Send("me", &msg).Do()
+	if err != nil {
+		log.Fatalf("Unable to send message: %v", err)
+	}
+	fmt.Println("Email sent successfully!")
+}
+
+func createEmail(rawMessage string) gmail.Message {
+	return gmail.Message{
+		Raw: rawMessage,
+	}
+}
+
+func createContent() string {
+	from := "nikolafordev@gmail.com" // Replace with the sender's email address
+	to := "ncekic13@gmail.com"       // Replace with the recipient's email address
+	subject := "Test Email from Gmail API"
+	message := "This is a test email sent using the Gmail API in Golang!"
+
+	// Create the email payload
+	return "From: " + from + "\r\n" +
+		"To: " + to + "\r\n" +
+		"Subject: " + subject + "\r\n\r\n" +
+		message
+}
+
 func main() {
 	ctx := context.Background()
 	b, err := os.ReadFile("credentials.json")
@@ -85,6 +115,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to parse client secret file to config: %v", err)
 	}
+
 	client := getClient(config)
 
 	srv, err := gmail.NewService(ctx, option.WithHTTPClient(client))
@@ -92,42 +123,19 @@ func main() {
 		log.Fatalf("Unable to retrieve Gmail client: %v", err)
 	}
 
-	user := "me"
-	r, err := srv.Users.Labels.List(user).Do()
-	if err != nil {
-		log.Fatalf("Unable to retrieve labels: %v", err)
-	}
-	if len(r.Labels) == 0 {
-		fmt.Println("No labels found.")
-		return
-	}
-	fmt.Println("Labels:")
-	for _, l := range r.Labels {
-		fmt.Printf("- %s\n", l.Name)
-	}
+	service.Init(client)
 
-	from := "nikolafordev@gmail.com" // Replace with the sender's email address
-	to := "ncekic13@gmail.com"       // Replace with the recipient's email address
-	subject := "Test Email from Gmail API"
-	message := "This is a test email sent using the Gmail API in Golang!"
+	// retrieve labels
+	ser := service.Service{Srv: srv}
+	ser.RetrieveLabels()
 
-	// Create the email payload
-	emailContent := "From: " + from + "\r\n" +
-		"To: " + to + "\r\n" +
-		"Subject: " + subject + "\r\n\r\n" +
-		message
+	// create an email
+	emailContent := createContent()
 
 	// Encode the email content as base64
-
 	rawMessage := base64.URLEncoding.EncodeToString([]byte(emailContent))
 
-	msg := gmail.Message{
-		Raw: rawMessage,
-	}
+	msg := createEmail(rawMessage)
 
-	_, err = srv.Users.Messages.Send("me", &msg).Do()
-	if err != nil {
-		log.Fatalf("Unable to send message: %v", err)
-	}
-	fmt.Println("Email sent successfully!")
+	sendEmail(srv, msg)
 }
