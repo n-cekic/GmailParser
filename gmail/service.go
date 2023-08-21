@@ -1,16 +1,13 @@
-package service
+package gmail
 
 import (
 	"fmt"
 	"log"
-	"net/http"
 
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/api/gmail/v1"
 )
-
-func Init(*http.Client) {
-
-}
 
 type Service struct {
 	Srv *gmail.Service
@@ -33,4 +30,8 @@ func (s *Service) RetrieveLabels() {
 	for _, l := range response.Labels {
 		fmt.Printf("- %s\n", l.Name)
 	}
+}
+
+func GetConfigFromJSON(jsonKey []byte, scope ...string) (*oauth2.Config, error) {
+	return google.ConfigFromJSON(jsonKey, gmail.GmailReadonlyScope, gmail.GmailSendScope)
 }
