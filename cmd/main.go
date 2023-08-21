@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	//"encoding/base64"
 	"encoding/base64"
 	"fmt"
 	"log"
@@ -45,7 +44,7 @@ func createContent() string {
 
 func main() {
 	ctx := context.Background()
-	b, err := os.ReadFile("credentials.json")
+	b, err := os.ReadFile("../credentials.json")
 	if err != nil {
 		log.Fatalf("Unable to read client secret file: %v", err)
 	}
@@ -67,13 +66,64 @@ func main() {
 	// retrieve labels
 	ser.RetrieveLabels()
 
+	/*
+		for false {
+			lbl, err := ser.Srv.Users.Labels.Get("me", "INBOX").Do()
+			if err != nil {
+				log.Printf("failed retrieving messages with label \"INBOX\": %s", err.Error())
+			}
+			log.Printf("=== unread messages from inbox: %d ===\n", lbl.MessagesUnread)
+
+			time.Sleep(5 * time.Second)
+		}
+	*/
+	messagesw, err := srv.Users.Messages.List("me").Q("is:unread").Do()
+	if err != nil {
+		log.Print(fmt.Errorf("failed listing unread messages: %w", err))
+	}
+	for _, messagew := range messagesw.Messages {
+		message, err := srv.Users.Messages.Get("me", messagew.Id).Format("full").Do()
+		if err != nil {
+			log.Print(fmt.Errorf("failed getting full message: %w", err))
+		}
+
+		var content string
+		for _, part := range message.Payload.Parts {
+			data, err := decodeMessagePart(part)
+			if err != nil {
+				log.Print(fmt.Errorf("failed decoding message payload: %w", err))
+			}
+			content += data
+		}
+
+		fmt.Println(content)
+	}
+
+	/*
+		if err != nil {
+			log.Print(err)
+		}
+		for _, mes := range messagesList.Messages {
+			log.Printf("mes.Raw: %v\n", mes.Payload.Body.Data)
+		}
+		srv.Users.Messages.Get("me", ";lk")
+	*/
+
 	// create an email
-	emailContent := createContent()
+	// emailContent := createContent()
 
 	// Encode the email content as base64
-	rawMessage := base64.URLEncoding.EncodeToString([]byte(emailContent))
+	// rawMessage := base64.URLEncoding.EncodeToString([]byte(emailContent))
 
-	msg := createEmail(rawMessage)
+	// msg := createEmail(rawMessage)
 
-	sendEmail(srv, msg)
+	// sendEmail(srv, msg)
+}
+
+func decodeMessagePart(part *gmail.MessagePart) (string, error) {
+	data, err := base64.URLEncoding.DecodeString(part.Body.Data)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
