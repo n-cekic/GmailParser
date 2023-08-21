@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -20,6 +21,9 @@ func tokenFromFile(file string) (*oauth2.Token, error) {
 	defer f.Close()
 	tok := &oauth2.Token{}
 	err = json.NewDecoder(f).Decode(tok)
+	if !tok.Valid() {
+		return nil, errors.New("oauth2 is not valid")
+	}
 	return tok, err
 }
 
@@ -57,11 +61,12 @@ func GetClient(config *oauth2.Config) *http.Client {
 	// The file token.json stores the user's access and refresh tokens, and is
 	// created automatically when the authorization flow completes for the first
 	// time.
-	tokFile := "token.json"
-	tok, err := tokenFromFile(tokFile)
+	tokenFile := "../token.json"
+	tok, err := tokenFromFile(tokenFile)
 	if err != nil {
+		log.Print(fmt.Errorf("reading token from a file failed: %w", err))
 		tok = getTokenFromWeb(config)
-		saveToken(tokFile, tok)
+		saveToken(tokenFile, tok)
 	}
 	return config.Client(context.Background(), tok)
 }
