@@ -77,12 +77,12 @@ func main() {
 			time.Sleep(5 * time.Second)
 		}
 	*/
-	messagesw, err := srv.Users.Messages.List("me").Q("is:unread").Do()
+	messages, err := srv.Users.Messages.List("me").Q("is:unread").Do()
 	if err != nil {
 		log.Print(fmt.Errorf("failed listing unread messages: %w", err))
 	}
-	for _, messagew := range messagesw.Messages {
-		message, err := srv.Users.Messages.Get("me", messagew.Id).Format("full").Do()
+	for _, message := range messages.Messages {
+		message, err := srv.Users.Messages.Get("me", message.Id).Format("full").Do()
 		if err != nil {
 			log.Print(fmt.Errorf("failed getting full message: %w", err))
 		}
