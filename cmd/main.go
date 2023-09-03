@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
+	"flag"
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/option"
@@ -13,6 +15,8 @@ import (
 	"nikola/monygo/auth"
 	mailing "nikola/monygo/gmail"
 )
+
+var secretsPath = flag.String("token.file", "${fileDirname}/../secrets/", "path to token file")
 
 func sendEmail(srv *gmail.Service, msg gmail.Message) {
 	// send an email
@@ -43,8 +47,9 @@ func createContent() string {
 }
 
 func main() {
-	ctx := context.Background()
-	b, err := os.ReadFile("../credentials.json")
+	flag.Parse()
+
+	b, err := os.ReadFile(*secretsPath + "client_secret.json")
 	if err != nil {
 		log.Fatalf("Unable to read client secret file: %v", err)
 	}
@@ -54,76 +59,18 @@ func main() {
 		log.Fatal(fmt.Errorf("failed creating client configuration: %w", err))
 	}
 
-	client := auth.GetClient(config)
+	client := auth.GetClient(config, *secretsPath+"token.json")
 
+	ctx := context.Background()
 	srv, err := gmail.NewService(ctx, option.WithHTTPClient(client))
 	if err != nil {
 		log.Fatalf("Unable to retrieve Gmail client: %v", err)
 	}
 
-	ser := mailing.Service{Srv: srv}
+	go mailing.CheckForNewMessages(srv)
 
-	// retrieve labels
-	ser.RetrieveLabels()
+	quitChannel := make(chan os.Signal, 1)
+	signal.Notify(quitChannel, syscall.SIGINT, syscall.SIGTERM)
 
-	/*
-		for false {
-			lbl, err := ser.Srv.Users.Labels.Get("me", "INBOX").Do()
-			if err != nil {
-				log.Printf("failed retrieving messages with label \"INBOX\": %s", err.Error())
-			}
-			log.Printf("=== unread messages from inbox: %d ===\n", lbl.MessagesUnread)
-
-			time.Sleep(5 * time.Second)
-		}
-	*/
-	messages, err := srv.Users.Messages.List("me").Q("is:unread").Do()
-	if err != nil {
-		log.Print(fmt.Errorf("failed listing unread messages: %w", err))
-	}
-	for _, message := range messages.Messages {
-		message, err := srv.Users.Messages.Get("me", message.Id).Format("full").Do()
-		if err != nil {
-			log.Print(fmt.Errorf("failed getting full message: %w", err))
-		}
-
-		var content string
-		for _, part := range message.Payload.Parts {
-			data, err := decodeMessagePart(part)
-			if err != nil {
-				log.Print(fmt.Errorf("failed decoding message payload: %w", err))
-			}
-			content += data
-		}
-
-		fmt.Println(content)
-	}
-
-	/*
-		if err != nil {
-			log.Print(err)
-		}
-		for _, mes := range messagesList.Messages {
-			log.Printf("mes.Raw: %v\n", mes.Payload.Body.Data)
-		}
-		srv.Users.Messages.Get("me", ";lk")
-	*/
-
-	// create an email
-	// emailContent := createContent()
-
-	// Encode the email content as base64
-	// rawMessage := base64.URLEncoding.EncodeToString([]byte(emailContent))
-
-	// msg := createEmail(rawMessage)
-
-	// sendEmail(srv, msg)
-}
-
-func decodeMessagePart(part *gmail.MessagePart) (string, error) {
-	data, err := base64.URLEncoding.DecodeString(part.Body.Data)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
+	<-quitChannel
 }
