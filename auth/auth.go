@@ -57,11 +57,10 @@ func saveToken(path string, token *oauth2.Token) {
 }
 
 // Retrieve a token, saves the token, then returns the generated client.
-func GetClient(config *oauth2.Config) *http.Client {
+func GetClient(config *oauth2.Config, tokenFile string) *http.Client {
 	// The file token.json stores the user's access and refresh tokens, and is
 	// created automatically when the authorization flow completes for the first
 	// time.
-	tokenFile := "../token.json"
 	tok, err := tokenFromFile(tokenFile)
 	if err != nil {
 		log.Print(fmt.Errorf("reading token from a file failed: %w", err))
