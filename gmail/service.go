@@ -38,11 +38,20 @@ func GetConfigFromJSON(jsonKey []byte, scope ...string) (*oauth2.Config, error) 
 	return google.ConfigFromJSON(jsonKey, gmail.GmailReadonlyScope, gmail.GmailSendScope, gmail.GmailModifyScope)
 }
 func CheckForNewMessages(srv *gmail.Service) {
+	previouslyPrinted := false
 	for {
-
 		messages, err := retrieveUnreadMessages(*srv)
 		if err != nil {
 			log.Print(fmt.Errorf("failed listing unread messages: %w", err))
+		}
+
+		if len(messages) == 0 && !previouslyPrinted {
+			log.Print("No new messages")
+			previouslyPrinted = true
+		}
+
+		if len(messages) > 0 {
+			previouslyPrinted = false
 		}
 
 		for _, msg := range messages {
@@ -50,7 +59,11 @@ func CheckForNewMessages(srv *gmail.Service) {
 			if err != nil {
 				log.Print(fmt.Errorf("failed getting full message: %w", err))
 			}
-
+			for _, hdr := range message.Payload.Headers {
+				if hdr.Name == "Subject" {
+					log.Print("subject of this message is: ", hdr.Value)
+				}
+			}
 			data, err := decodeMessagePart(message.Payload.Parts[0])
 			if err != nil {
 				log.Print(fmt.Errorf("failed decoding message payload: %w", err))
@@ -66,7 +79,6 @@ func CheckForNewMessages(srv *gmail.Service) {
 }
 
 func retrieveUnreadMessages(srv gmail.Service) ([]*gmail.Message, error) {
-	log.Println("Retrieving unread messages")
 	messages, err := srv.Users.Messages.List("me").Q("is:unread").Do()
 	if err != nil {
 		return nil, err
