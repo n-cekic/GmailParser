@@ -45,37 +45,33 @@ func CheckForNewMessages(srv *gmail.Service) {
 			log.Print(fmt.Errorf("failed listing unread messages: %w", err))
 		}
 
-		for _, msg := range messages.Messages {
+		for _, msg := range messages {
 			message, err := getFullMessage(srv, msg.Id)
 			if err != nil {
 				log.Print(fmt.Errorf("failed getting full message: %w", err))
 			}
 
-			var content string
-			for _, part := range message.Payload.Parts {
-				data, err := decodeMessagePart(part)
-				if err != nil {
-					log.Print(fmt.Errorf("failed decoding message payload: %w", err))
-				}
-				content += data
+			data, err := decodeMessagePart(message.Payload.Parts[0])
+			if err != nil {
+				log.Print(fmt.Errorf("failed decoding message payload: %w", err))
 			}
 
-			fmt.Println(content)
+			log.Print(data)
 
-			// markMessageAsRead(srv, message)
+			markMessageAsRead(srv, message)
 		}
 
 		time.Sleep(5 * time.Second)
 	}
 }
 
-func retrieveUnreadMessages(srv gmail.Service) (*gmail.ListMessagesResponse, error) {
+func retrieveUnreadMessages(srv gmail.Service) ([]*gmail.Message, error) {
 	log.Println("Retrieving unread messages")
 	messages, err := srv.Users.Messages.List("me").Q("is:unread").Do()
 	if err != nil {
 		return nil, err
 	}
-	return messages, nil
+	return messages.Messages, nil
 }
 
 func getFullMessage(srv *gmail.Service, messageID string) (*gmail.Message, error) {
