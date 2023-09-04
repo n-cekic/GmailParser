@@ -16,7 +16,7 @@ import (
 	mailing "nikola/monygo/gmail"
 )
 
-var secretsPath = flag.String("token.file", "${fileDirname}/../secrets/", "path to token file")
+var secretsPath = flag.String("secrets.path", "${fileDirname}/../secrets/", "path to token file")
 
 func sendEmail(srv *gmail.Service, msg gmail.Message) {
 	// send an email
